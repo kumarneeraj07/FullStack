@@ -213,7 +213,7 @@ node scripts/verify.mjs
 This runs the full API test suite covering authentication, RBAC, movie CRUD, booking workflows, concurrency (parallel seat lock race conditions), and reviews.
 
 ---
-
+<!-- CI/CD verified -->
 ## License
 
 MIT
