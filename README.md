@@ -1,33 +1,34 @@
-# CineBook — Full-Stack Movie Ticket Booking Platform
+# CineBook -- Full-Stack Movie Ticket Booking Platform
 
-A production-style movie ticket booking system (like BookMyShow) built with the MERN stack.
+A production-style movie ticket booking system (like BookMyShow) built with React, Express, Sequelize, and PostgreSQL.
 
 ---
 
 ## Architecture Overview
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│  FRONTEND  (React + Vite)                                      │
-│  - Component-based UI, React Router, Axios with JWT interceptor│
-│  - AuthContext (global state), SeatMap widget, Booking flow    │
-└───────────────────────────────┬────────────────────────────────┘
-                                │ REST API (JSON)
-┌───────────────────────────────▼────────────────────────────────┐
-│  BACKEND  (Express.js)                                         │
-│  - Layered: Routes → Controllers → Services → Models           │
-│  - JWT auth + Role-Based Access Control (admin / user)         │
-│  - Validation (express-validator), Encryption (bcrypt)         │
-│  - Standardized responses & centralized error handling         │
-│  - Atomic seat-locking to prevent double booking               │
-└───────────────────────────────┬────────────────────────────────┘
-                                │ Mongoose ODM
-┌───────────────────────────────▼────────────────────────────────┐
-│  DATABASE  (MongoDB)                                           │
-│  - Document schemas: User, Movie, Theatre, Screen, Show,       │
-│    Booking, Review                                             │
-│  - Text indexes for search, compound indexes for concurrency   │
-└────────────────────────────────────────────────────────────────┘
++-----------------------------------------------------------------+
+|  FRONTEND  (React + Vite)                                       |
+|  - Component-based UI, React Router, Axios with JWT interceptor |
+|  - AuthContext (global state), SeatMap widget, Booking flow     |
++-------------------------------+---------------------------------+
+                                | REST API (JSON)
++-------------------------------v---------------------------------+
+|  BACKEND  (Express.js)                                          |
+|  - Layered: Routes -> Controllers -> Services -> Models         |
+|  - JWT auth + Role-Based Access Control (admin / user)          |
+|  - Validation (express-validator), Encryption (bcrypt)          |
+|  - Standardized responses & centralized error handling          |
+|  - Row-level locking + unique constraints for concurrency       |
++-------------------------------+---------------------------------+
+                                | Sequelize ORM
++-------------------------------v---------------------------------+
+|  DATABASE  (PostgreSQL)                                         |
+|  - Relational schemas: User, Movie, Theatre, Screen, Show,     |
+|    Booking, Review, SeatLock                                    |
+|  - UUID primary keys, JSONB for flexible data (seat layouts)    |
+|  - Unique constraints + transactions for concurrency control    |
++-----------------------------------------------------------------+
 ```
 
 ---
@@ -38,11 +39,11 @@ A production-style movie ticket booking system (like BookMyShow) built with the 
 |--------|--------------------|
 | **Auth & Security** | JWT sign/verify, bcrypt password hashing, RBAC middleware (admin/user) |
 | **API Design** | RESTful resource routes, request validation, pagination + sorting + search |
-| **Database** | MongoDB + Mongoose, text indexes, document references, aggregation pipeline |
-| **Booking Workflow** | Seat selection → Lock (temporary hold) → Confirm (atomic commit) → Cancel |
-| **Concurrency** | Atomic single-document `findOneAndUpdate` prevents double-booking race conditions |
-| **Seat Layout** | Configurable row-based screen model (premium/regular/recliner pricing) |
-| **Reviews & Ratings** | CRUD reviews, denormalized rating summary on movie (aggregation pipeline refresh) |
+| **Database** | PostgreSQL + Sequelize ORM, UUID primary keys, JSONB columns, unique constraints |
+| **Booking Workflow** | Seat selection -> Lock (temporary hold) -> Confirm (atomic commit) -> Cancel |
+| **Concurrency** | PostgreSQL row-level locking (SELECT FOR UPDATE) + unique constraint on SeatLock(showId, seat) prevents double-booking |
+| **Seat Layout** | Configurable row-based screen model (premium/regular/recliner pricing) stored as JSONB |
+| **Reviews & Ratings** | CRUD reviews, denormalized rating summary on movie (aggregation refresh) |
 | **Frontend** | React Router navigation, Context API state, Axios interceptors, component design |
 | **Error Handling** | Operational errors via ApiError class, global error middleware, validation details |
 
@@ -51,24 +52,40 @@ A production-style movie ticket booking system (like BookMyShow) built with the 
 ## Tech Stack
 
 - **Frontend:** React 18, React Router 6, Axios, Vite
-- **Backend:** Node.js, Express 4, Mongoose 8
-- **Database:** MongoDB
+- **Backend:** Node.js, Express 4, Sequelize 6 (ORM)
+- **Database:** PostgreSQL (with SQLite fallback for testing)
 - **Auth:** JSON Web Tokens (jsonwebtoken), bcryptjs
 - **Validation:** express-validator
+- **Deployment:** Vercel (serverless functions for backend, static hosting for frontend)
 
 ---
 
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js 18+
-- MongoDB (local or Atlas)
+- PostgreSQL database (see free providers below)
+
+### Free PostgreSQL Providers
+
+You do not need to install PostgreSQL locally. Use one of these free hosted options:
+
+| Provider | Free Tier | Notes |
+|----------|-----------|-------|
+| [Neon](https://neon.tech) | 0.5 GB storage, serverless | No credit card required, great for serverless deployments |
+| [Supabase](https://supabase.com) | 500 MB, 2 projects | Includes a full Postgres instance + REST API |
+| [Railway](https://railway.app) | $5 free credit/month | One-click PostgreSQL provisioning |
+
+After creating a database, copy the connection string (it looks like `postgresql://user:pass@host:5432/dbname`) and set it as `DATABASE_URL`.
 
 ### 1. Backend
 
 ```bash
 cd backend
-cp .env.example .env   # edit MONGO_URI if needed
+cp .env.example .env
+# Edit .env and set DATABASE_URL to your PostgreSQL connection string
+# Example: DATABASE_URL=postgresql://user:password@host:5432/moviebooking
 npm install
 npm run seed           # populate demo data
 npm run dev            # starts on http://localhost:5000
@@ -82,6 +99,17 @@ cp .env.example .env.local
 npm install
 npm run dev            # starts on http://localhost:5173
 ```
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://localhost:5432/moviebooking` |
+| `JWT_SECRET` | Secret key for signing JWTs | `dev_secret_change_me` |
+| `JWT_EXPIRES_IN` | Token expiry duration | `7d` |
+| `PORT` | Server port | `5000` |
+| `CLIENT_URL` | Allowed CORS origins (comma-separated) | `http://localhost:5173` |
+| `SEAT_LOCK_TTL_SECONDS` | How long seat locks last | `300` |
 
 ### Demo Credentials (after seeding)
 
@@ -127,44 +155,62 @@ npm run dev            # starts on http://localhost:5173
 
 ```
 FullStack/
-├── backend/
-│   ├── src/
-│   │   ├── config/        # db connection, env vars
-│   │   ├── controllers/   # request handlers
-│   │   ├── middleware/     # auth, validation, error handler
-│   │   ├── models/        # Mongoose schemas
-│   │   ├── routes/        # Express routers
-│   │   ├── services/      # business logic (booking, seats, token)
-│   │   ├── utils/         # ApiError, ApiResponse, asyncHandler
-│   │   ├── seed/          # database seeder
-│   │   ├── app.js         # Express app factory
-│   │   └── server.js      # entry point
-│   └── package.json
-├── frontend/
-│   ├── src/
-│   │   ├── api/           # Axios client with JWT interceptor
-│   │   ├── components/    # Navbar, SeatMap, MovieCard, ProtectedRoute
-│   │   ├── context/       # AuthContext (global state)
-│   │   ├── pages/         # Home, Login, Register, MovieDetails, Booking, MyBookings
-│   │   ├── styles.css     # Global stylesheet
-│   │   ├── App.jsx        # Route definitions
-│   │   └── main.jsx       # Entry point
-│   ├── index.html
-│   └── package.json
-└── README.md
++-- backend/
+|   +-- src/
+|   |   +-- config/        # db connection (Sequelize), env vars
+|   |   +-- controllers/   # request handlers
+|   |   +-- middleware/     # auth, validation, error handler
+|   |   +-- models/        # Sequelize models + associations
+|   |   +-- routes/        # Express routers
+|   |   +-- services/      # business logic (booking, seats, token)
+|   |   +-- utils/         # ApiError, ApiResponse, asyncHandler
+|   |   +-- seed/          # database seeder
+|   |   +-- app.js         # Express app factory
+|   |   +-- server.js      # entry point
+|   +-- api/               # Vercel serverless entry point
+|   +-- scripts/           # verify.mjs integration tests
+|   +-- package.json
++-- frontend/
+|   +-- src/
+|   |   +-- api/           # Axios client with JWT interceptor
+|   |   +-- components/    # Navbar, SeatMap, MovieCard, ProtectedRoute
+|   |   +-- context/       # AuthContext (global state)
+|   |   +-- pages/         # Home, Login, Register, MovieDetails, Booking, MyBookings
+|   |   +-- styles.css     # Global stylesheet
+|   |   +-- App.jsx        # Route definitions
+|   |   +-- main.jsx       # Entry point
+|   +-- index.html
+|   +-- package.json
++-- README.md
 ```
 
 ---
 
 ## How Double Booking is Prevented
 
-The system uses MongoDB's **atomic single-document updates** as the concurrency primitive:
+The system uses PostgreSQL's **row-level locking** and **unique constraints** as concurrency primitives:
 
-1. **Lock phase:** `findOneAndUpdate` with a filter that requires the seat is NOT in `bookedSeats` AND NOT in active `locks`. Because MongoDB applies the filter and update atomically within a single document, two concurrent lock requests for the same seat can never both match — the second one fails the filter and receives a 409 Conflict.
+1. **Unique constraint on SeatLock(showId, seat):** When a user attempts to lock a seat, a row is inserted into the `seat_locks` table. The unique constraint ensures that only one lock can exist for any (show, seat) combination. If two concurrent requests try to lock the same seat, only one INSERT succeeds; the other receives a unique constraint violation error (409 Conflict).
 
-2. **Confirm phase:** Moves seats from `locks` to `bookedSeats` in a transaction (or atomic fallback on standalone). Only succeeds if the seats are still locked by the requesting user and not yet expired.
+2. **SELECT FOR UPDATE (row-level locking):** During the confirm phase, the system uses `SELECT FOR UPDATE` on the relevant SeatLock rows and the Show row. This pessimistic lock serializes concurrent confirms, ensuring that bookedSeats is updated atomically without lost writes.
 
-3. **TTL expiry:** Each lock has an `expiresAt` timestamp. Expired locks are cleaned up before any availability check, so abandoned checkouts automatically release seats.
+3. **Transactions:** Both the lock and confirm phases execute inside database transactions. If any step fails, all changes are rolled back, preventing partial state.
+
+4. **TTL expiry:** Each lock has an `expiresAt` timestamp. Expired locks are cleaned up before any availability check, so abandoned checkouts automatically release seats.
+
+---
+
+## Running Tests
+
+The project includes an integration test script that uses SQLite in-memory (no external database required):
+
+```bash
+cd backend
+npm install          # installs sqlite3 as a devDependency
+node scripts/verify.mjs
+```
+
+This runs the full API test suite covering authentication, RBAC, movie CRUD, booking workflows, concurrency (parallel seat lock race conditions), and reviews.
 
 ---
 

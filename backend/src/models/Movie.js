@@ -1,7 +1,28 @@
 import { DataTypes, Model } from "sequelize";
 import { sequelize } from "../config/db.js";
 
+const isSqlite = sequelize.getDialect() === "sqlite";
+
 class Movie extends Model {}
+
+const genresField = isSqlite
+  ? {
+      type: DataTypes.TEXT,
+      defaultValue: "[]",
+      get() {
+        const raw = this.getDataValue("genres");
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw;
+        try { return JSON.parse(raw); } catch { return []; }
+      },
+      set(val) {
+        this.setDataValue("genres", JSON.stringify(val || []));
+      },
+    }
+  : {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      defaultValue: [],
+    };
 
 Movie.init(
   {
@@ -22,10 +43,7 @@ Movie.init(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    genres: {
-      type: DataTypes.ARRAY(DataTypes.STRING),
-      defaultValue: [],
-    },
+    genres: genresField,
     durationMinutes: {
       type: DataTypes.INTEGER,
       allowNull: false,

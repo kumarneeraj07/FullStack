@@ -1,6 +1,8 @@
 import { DataTypes, Model } from "sequelize";
 import { sequelize } from "../config/db.js";
 
+const isSqlite = sequelize.getDialect() === "sqlite";
+
 class Screen extends Model {
   /**
    * Virtual getter: total seat capacity of the screen.
@@ -11,6 +13,25 @@ class Screen extends Model {
     return rows.reduce((sum, r) => sum + r.seats, 0);
   }
 }
+
+const rowsField = isSqlite
+  ? {
+      type: DataTypes.TEXT,
+      allowNull: false,
+      get() {
+        const raw = this.getDataValue("rows");
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw;
+        try { return JSON.parse(raw); } catch { return []; }
+      },
+      set(val) {
+        this.setDataValue("rows", JSON.stringify(val || []));
+      },
+    }
+  : {
+      type: DataTypes.JSONB,
+      allowNull: false,
+    };
 
 Screen.init(
   {
@@ -28,10 +49,7 @@ Screen.init(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    rows: {
-      type: DataTypes.JSONB,
-      allowNull: false,
-    },
+    rows: rowsField,
   },
   {
     sequelize,

@@ -1,4 +1,5 @@
 import { Op } from "sequelize";
+import { sequelize } from "../config/db.js";
 import { Movie } from "../models/index.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -23,13 +24,20 @@ export const listMovies = asyncHandler(async (req, res) => {
 
   const where = {};
   if (req.query.search) {
-    where.title = { [Op.iLike]: `%${req.query.search}%` };
+    // SQLite does not support ILIKE; use Op.like (case-insensitive by default in SQLite)
+    const likeOp = sequelize.getDialect() === "sqlite" ? Op.like : Op.iLike;
+    where.title = { [likeOp]: `%${req.query.search}%` };
   }
   if (req.query.language) {
     where.language = req.query.language;
   }
   if (req.query.genre) {
-    where.genres = { [Op.contains]: [req.query.genre] };
+    // Op.contains is PostgreSQL-only (for ARRAY columns). For SQLite use LIKE on the JSON text.
+    if (sequelize.getDialect() === "sqlite") {
+      where.genres = { [Op.like]: `%${req.query.genre}%` };
+    } else {
+      where.genres = { [Op.contains]: [req.query.genre] };
+    }
   }
 
   // Sort: e.g. "ratingAverage" (asc) or "-releaseDate" (desc). Default newest.

@@ -1,0 +1,28 @@
+{
+  "id": "FEAT-003",
+  "type": "chore",
+  "description": "Rewrite seed script, Vercel serverless entry point, and verify script for Sequelize. Update README to document PostgreSQL setup with free providers (Neon, Supabase, Railway).",
+  "status": "in_progress",
+  "steps": [
+    "Rewrite backend/src/seed/seed.js: Import sequelize from config/db.js and all models from models/index.js. Use sequelize.sync({force:true}) to recreate tables. Use Model.bulkCreate() for movies, and Model.create() for users (to trigger bcrypt hooks). Create theatre, screen, shows same as before but with Sequelize create methods. Use UUID references instead of ObjectId. Close connection with sequelize.close() at end.",
+    "Rewrite backend/api/index.js (Vercel serverless entry): Import sequelize and connectDB from config/db.js. Import models/index.js to ensure associations are registered. The handler calls await connectDB() then delegates to the Express app. Keep the same pattern of caching for warm starts.",
+    "Rewrite backend/src/server.js: Import connectDB from config/db.js. Import models/index.js to register associations. Call connectDB() before app.listen(). Same structure as before.",
+    "Rewrite backend/scripts/verify.mjs: Since mongodb-memory-server is removed, use SQLite in-memory as the test database (Sequelize supports dialect: 'sqlite', storage: ':memory:'). Set DATABASE_URL or override the sequelize instance to use SQLite for testing. Run the same integration tests: health check, register/login, RBAC, movie CRUD, theatre+screen, show+seat-map, booking lock/confirm/cancel, concurrency test (10 parallel locks on same seat - only 1 wins), reviews+rating-summary. Install 'sqlite3' as a devDependency for this purpose.",
+    "Update the root README.md: Change references from MongoDB to PostgreSQL. Update the architecture diagram. Add a section on free PostgreSQL providers: Neon (neon.tech - free tier, serverless-friendly, no credit card), Supabase (free tier PostgreSQL), Railway (free tier). Update the Getting Started instructions to mention DATABASE_URL. Update the tech stack section."
+  ],
+  "acceptance_criteria": [
+    "backend/api/index.js imports from Sequelize config, not mongoose",
+    "backend/src/seed/seed.js uses Sequelize sync and create methods",
+    "backend/scripts/verify.mjs uses SQLite in-memory (or skips DB tests gracefully)",
+    "Running 'node -e \"import('./api/index.js')\"' from backend/ does not error",
+    "README.md mentions PostgreSQL, Neon, Supabase as database options",
+    "sqlite3 is added as a devDependency in package.json for testing"
+  ],
+  "verification": [
+    "cd /projects/sandbox/FullStack/backend && npm install",
+    "cd /projects/sandbox/FullStack/backend && node -e \"import('./api/index.js').then(() => console.log('Vercel entry OK')).catch(e => { console.error(e); process.exit(1) })\"",
+    "cd /projects/sandbox/FullStack/backend && node scripts/verify.mjs"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

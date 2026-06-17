@@ -1,7 +1,28 @@
 import { DataTypes, Model } from "sequelize";
 import { sequelize } from "../config/db.js";
 
+const isSqlite = sequelize.getDialect() === "sqlite";
+
 class Show extends Model {}
+
+const bookedSeatsField = isSqlite
+  ? {
+      type: DataTypes.TEXT,
+      defaultValue: "[]",
+      get() {
+        const raw = this.getDataValue("bookedSeats");
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw;
+        try { return JSON.parse(raw); } catch { return []; }
+      },
+      set(val) {
+        this.setDataValue("bookedSeats", JSON.stringify(val || []));
+      },
+    }
+  : {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      defaultValue: [],
+    };
 
 Show.init(
   {
@@ -37,10 +58,7 @@ Show.init(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    bookedSeats: {
-      type: DataTypes.ARRAY(DataTypes.STRING),
-      defaultValue: [],
-    },
+    bookedSeats: bookedSeatsField,
   },
   {
     sequelize,
