@@ -1,26 +1,50 @@
-import mongoose from "mongoose";
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../config/db.js";
 
-/**
- * A confirmed (or cancelled) booking made by a user for a set of seats
- * on a single show. The booking lifecycle is tracked via `status`.
- */
-const bookingSchema = new mongoose.Schema(
+class Booking extends Model {}
+
+Booking.init(
   {
-    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    show: { type: mongoose.Schema.Types.ObjectId, ref: "Show", required: true, index: true },
-    seats: { type: [String], required: true },
-    totalAmount: { type: Number, required: true, min: 0 },
-    status: {
-      type: String,
-      enum: ["confirmed", "cancelled"],
-      default: "confirmed",
-      index: true,
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
     },
-    // Human-friendly reference shown on the ticket.
-    reference: { type: String, required: true, unique: true },
+    userId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: "users", key: "id" },
+    },
+    showId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: "shows", key: "id" },
+    },
+    seats: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: false,
+    },
+    totalAmount: {
+      type: DataTypes.FLOAT,
+      allowNull: false,
+    },
+    status: {
+      type: DataTypes.ENUM("confirmed", "cancelled"),
+      defaultValue: "confirmed",
+    },
+    reference: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
   },
-  { timestamps: true }
+  {
+    sequelize,
+    modelName: "Booking",
+    tableName: "bookings",
+    timestamps: true,
+  }
 );
 
-export const Booking = mongoose.model("Booking", bookingSchema);
+export { Booking };
 export default Booking;

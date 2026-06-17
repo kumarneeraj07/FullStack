@@ -1,24 +1,62 @@
-import mongoose from "mongoose";
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../config/db.js";
 
-const movieSchema = new mongoose.Schema(
+class Movie extends Model {}
+
+Movie.init(
   {
-    title: { type: String, required: true, trim: true, index: true },
-    description: { type: String, default: "" },
-    language: { type: String, required: true, index: true },
-    genres: { type: [String], default: [], index: true },
-    durationMinutes: { type: Number, required: true, min: 1 },
-    certification: { type: String, default: "UA" }, // U / UA / A
-    posterUrl: { type: String, default: "" },
-    releaseDate: { type: Date },
-    // Denormalized rating summary, kept in sync when reviews change.
-    ratingAverage: { type: Number, default: 0, min: 0, max: 5 },
-    ratingCount: { type: Number, default: 0 },
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    title: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    description: {
+      type: DataTypes.TEXT,
+      defaultValue: "",
+    },
+    language: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    genres: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      defaultValue: [],
+    },
+    durationMinutes: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    certification: {
+      type: DataTypes.STRING,
+      defaultValue: "UA",
+    },
+    posterUrl: {
+      type: DataTypes.STRING,
+      defaultValue: "",
+    },
+    releaseDate: {
+      type: DataTypes.DATEONLY,
+    },
+    ratingAverage: {
+      type: DataTypes.FLOAT,
+      defaultValue: 0,
+    },
+    ratingCount: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
   },
-  { timestamps: true }
+  {
+    sequelize,
+    modelName: "Movie",
+    tableName: "movies",
+    timestamps: true,
+  }
 );
 
-// Text index to support keyword search across title/description.
-movieSchema.index({ title: "text", description: "text" });
-
-export const Movie = mongoose.model("Movie", movieSchema);
+export { Movie };
 export default Movie;

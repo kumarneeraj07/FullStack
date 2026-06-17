@@ -1,51 +1,47 @@
 import { DataTypes, Model } from "sequelize";
 import { sequelize } from "../config/db.js";
 
-class Review extends Model {}
+class SeatLock extends Model {}
 
-Review.init(
+SeatLock.init(
   {
     id: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
-    movieId: {
+    showId: {
       type: DataTypes.UUID,
       allowNull: false,
-      references: { model: "movies", key: "id" },
+      references: { model: "shows", key: "id" },
     },
     userId: {
       type: DataTypes.UUID,
       allowNull: false,
       references: { model: "users", key: "id" },
     },
-    rating: {
-      type: DataTypes.INTEGER,
+    seat: {
+      type: DataTypes.STRING,
       allowNull: false,
-      validate: {
-        min: 1,
-        max: 5,
-      },
     },
-    comment: {
-      type: DataTypes.TEXT,
-      defaultValue: "",
+    expiresAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
     },
   },
   {
     sequelize,
-    modelName: "Review",
-    tableName: "reviews",
+    modelName: "SeatLock",
+    tableName: "seat_locks",
     timestamps: true,
     indexes: [
       {
         unique: true,
-        fields: ["movieId", "userId"],
+        fields: ["showId", "seat"],
       },
     ],
   }
 );
 
-export { Review };
-export default Review;
+export { SeatLock };
+export default SeatLock;

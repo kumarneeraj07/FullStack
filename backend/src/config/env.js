@@ -9,7 +9,8 @@ dotenv.config();
 export const env = {
   port: Number(process.env.PORT) || 5000,
   nodeEnv: process.env.NODE_ENV || "development",
-  mongoUri: process.env.MONGO_URI || "mongodb://127.0.0.1:27017/moviebooking",
+  databaseUrl:
+    process.env.DATABASE_URL || "postgresql://localhost:5432/moviebooking",
   jwtSecret: process.env.JWT_SECRET || "dev_secret_change_me",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
   seatLockTtlSeconds: Number(process.env.SEAT_LOCK_TTL_SECONDS) || 300,

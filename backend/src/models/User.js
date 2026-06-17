@@ -1,39 +1,62 @@
-import mongoose from "mongoose";
+import { DataTypes, Model } from "sequelize";
 import bcrypt from "bcryptjs";
+import { sequelize } from "../config/db.js";
 
-const userSchema = new mongoose.Schema(
+class User extends Model {
+  /**
+   * Compare a plain-text password against the stored hash.
+   */
+  async comparePassword(plain) {
+    return bcrypt.compare(plain, this.password);
+  }
+}
+
+User.init(
   {
-    name: { type: String, required: true, trim: true },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      trim: true,
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
     },
-    // Stored as a bcrypt hash, never in plain text. select:false hides it from queries by default.
-    password: { type: String, required: true, select: false },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    password: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
     role: {
-      type: String,
-      enum: ["user", "admin"],
-      default: "user",
+      type: DataTypes.ENUM("user", "admin"),
+      defaultValue: "user",
     },
   },
-  { timestamps: true }
+  {
+    sequelize,
+    modelName: "User",
+    tableName: "users",
+    timestamps: true,
+    hooks: {
+      beforeCreate: async (user) => {
+        if (user.password) {
+          const salt = await bcrypt.genSalt(10);
+          user.password = await bcrypt.hash(user.password, salt);
+        }
+      },
+      beforeUpdate: async (user) => {
+        if (user.changed("password")) {
+          const salt = await bcrypt.genSalt(10);
+          user.password = await bcrypt.hash(user.password, salt);
+        }
+      },
+    },
+  }
 );
 
-// Hash the password before saving whenever it has been modified.
-userSchema.pre("save", async function hashPassword(next) {
-  if (!this.isModified("password")) return next();
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
-});
-
-// Instance helper to compare a plain password against the stored hash.
-userSchema.methods.comparePassword = function comparePassword(plain) {
-  return bcrypt.compare(plain, this.password);
-};
-
-export const User = mongoose.model("User", userSchema);
+export { User };
 export default User;

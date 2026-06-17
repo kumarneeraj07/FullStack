@@ -1,0 +1,37 @@
+{
+  "id": "FEAT-001",
+  "type": "chore",
+  "description": "Replace MongoDB/Mongoose dependencies with PostgreSQL/Sequelize and rewrite the database configuration, environment config, and all 7 models as Sequelize models with proper associations.",
+  "status": "in_progress",
+  "steps": [
+    "In backend/package.json: remove 'mongoose' from dependencies, remove 'mongodb-memory-server' from devDependencies. Add 'sequelize': '^6.37.0', 'pg': '^8.12.0', 'pg-hstore': '^2.3.4' to dependencies.",
+    "Rewrite backend/src/config/env.js: Replace mongoUri with databaseUrl (reads DATABASE_URL env var, default to 'postgresql://localhost:5432/moviebooking'). Keep all other env vars the same.",
+    "Rewrite backend/src/config/db.js: Create and export a Sequelize instance configured for serverless (small pool: max 5, min 0, idle 10000, acquire 30000, SSL required via dialectOptions for production). Cache the connection globally (global.__sequelize) for serverless warm starts. Export connectDB() that calls sequelize.authenticate() and sequelize.sync(). Export the sequelize instance.",
+    "Create backend/src/models/index.js: Import all models, define associations, and export them. Associations: Theatre hasMany Screen; Screen belongsTo Theatre; Movie hasMany Show; Theatre hasMany Show; Screen hasMany Show; Show belongsTo Movie/Theatre/Screen; User hasMany Booking; Show hasMany Booking; Booking belongsTo User/Show; Movie hasMany Review; User hasMany Review; Review belongsTo Movie/User.",
+    "Rewrite backend/src/models/User.js as a Sequelize model: columns id (UUID, primaryKey, defaultValue UUIDV4), name (STRING, allowNull false), email (STRING, unique, allowNull false), password (STRING, allowNull false), role (ENUM 'user','admin', default 'user'). Add beforeCreate/beforeUpdate hooks to hash password with bcrypt. Add instance method comparePassword. Use timestamps: true.",
+    "Rewrite backend/src/models/Movie.js as a Sequelize model: columns id (UUID PK), title (STRING, allowNull false), description (TEXT, default ''), language (STRING, allowNull false), genres (ARRAY of STRING, default []), durationMinutes (INTEGER, allowNull false), certification (STRING, default 'UA'), posterUrl (STRING, default ''), releaseDate (DATEONLY), ratingAverage (FLOAT, default 0), ratingCount (INTEGER, default 0). Use timestamps: true.",
+    "Rewrite backend/src/models/Theatre.js as Sequelize: id (UUID PK), name (STRING, allowNull false), city (STRING, allowNull false), address (STRING, default ''). timestamps: true.",
+    "Rewrite backend/src/models/Screen.js as Sequelize: id (UUID PK), theatreId (UUID, FK to Theatre), name (STRING, allowNull false), rows (JSONB, allowNull false - stores the array of {label, seats, seatType, price}). Add a virtual getter 'capacity' that sums seats from rows JSON. timestamps: true.",
+    "Rewrite backend/src/models/Show.js as Sequelize: id (UUID PK), movieId (UUID FK), theatreId (UUID FK), screenId (UUID FK), startTime (DATE, allowNull false), format (ENUM '2D','3D','IMAX', default '2D'), language (STRING, allowNull false), bookedSeats (ARRAY of STRING, default []). timestamps: true. NOTE: locks are now stored in a separate SeatLock table.",
+    "Create backend/src/models/SeatLock.js as a NEW Sequelize model: id (UUID PK), showId (UUID FK to Show), userId (UUID FK to User), seat (STRING, allowNull false), expiresAt (DATE, allowNull false). Add unique composite index on (showId, seat) to prevent duplicate locks. Add association: Show hasMany SeatLock; SeatLock belongsTo Show and User.",
+    "Rewrite backend/src/models/Booking.js as Sequelize: id (UUID PK), userId (UUID FK), showId (UUID FK), seats (ARRAY of STRING, allowNull false), totalAmount (FLOAT, allowNull false), status (ENUM 'confirmed','cancelled', default 'confirmed'), reference (STRING, unique, allowNull false). timestamps: true.",
+    "Rewrite backend/src/models/Review.js as Sequelize: id (UUID PK), movieId (UUID FK), userId (UUID FK), rating (INTEGER, allowNull false, validate min 1 max 5), comment (TEXT, default ''). Add unique composite index on (movieId, userId). timestamps: true.",
+    "Update backend/.env.example: Replace MONGO_URI with DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require. Add a comment showing Neon format."
+  ],
+  "acceptance_criteria": [
+    "backend/package.json has sequelize, pg, pg-hstore in dependencies and does NOT have mongoose or mongodb-memory-server",
+    "Running 'npm install' in backend/ succeeds without errors",
+    "All model files export Sequelize Model classes with correct column definitions",
+    "backend/src/models/index.js exports all models and defines all associations",
+    "backend/src/config/db.js exports a Sequelize instance and connectDB function",
+    "backend/src/config/env.js references DATABASE_URL instead of MONGO_URI",
+    "backend/.env.example shows DATABASE_URL instead of MONGO_URI",
+    "Running 'node -e \"import('./src/models/index.js')\"' from backend/ does not throw import errors"
+  ],
+  "verification": [
+    "cd /projects/sandbox/FullStack/backend && npm install 2>&1 | tail -5",
+    "cd /projects/sandbox/FullStack/backend && node -e \"import('./src/models/index.js').then(() => console.log('Models OK')).catch(e => { console.error(e); process.exit(1) })\""
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

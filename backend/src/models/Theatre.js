@@ -1,13 +1,35 @@
-import mongoose from "mongoose";
+import { DataTypes, Model } from "sequelize";
+import { sequelize } from "../config/db.js";
 
-const theatreSchema = new mongoose.Schema(
+class Theatre extends Model {}
+
+Theatre.init(
   {
-    name: { type: String, required: true, trim: true },
-    city: { type: String, required: true, index: true },
-    address: { type: String, default: "" },
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    city: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    address: {
+      type: DataTypes.STRING,
+      defaultValue: "",
+    },
   },
-  { timestamps: true }
+  {
+    sequelize,
+    modelName: "Theatre",
+    tableName: "theatres",
+    timestamps: true,
+  }
 );
 
-export const Theatre = mongoose.model("Theatre", theatreSchema);
+export { Theatre };
 export default Theatre;

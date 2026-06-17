@@ -1,44 +1,51 @@
-import mongoose from "mongoose";
+import { Sequelize } from "sequelize";
+import { env } from "./env.js";
 
 /**
- * Cached connection promise for serverless environments.
- * Prevents opening a new connection on every invocation when the
- * function instance is reused (warm start).
+ * Create or reuse a Sequelize instance, cached globally for serverless
+ * warm starts so we don't open a new connection pool on every invocation.
  */
-let cached = global.__mongooseConnection;
+function getSequelize() {
+  if (global.__sequelize) {
+    return global.__sequelize;
+  }
 
-if (!cached) {
-  cached = global.__mongooseConnection = { promise: null, conn: null };
+  const isProduction = env.nodeEnv === "production";
+
+  const sequelize = new Sequelize(env.databaseUrl, {
+    dialect: "postgres",
+    logging: isProduction ? false : console.log,
+    pool: {
+      max: 5,
+      min: 0,
+      idle: 10000,
+      acquire: 30000,
+    },
+    dialectOptions: isProduction
+      ? {
+          ssl: {
+            require: true,
+            rejectUnauthorized: false,
+          },
+        }
+      : {},
+  });
+
+  global.__sequelize = sequelize;
+  return sequelize;
 }
 
+export const sequelize = getSequelize();
+
 /**
- * Connect to MongoDB. Reads the connection string from MONGO_URI.
- * Uses a cached promise so that serverless warm starts reuse the
- * existing connection instead of creating a new one each time.
+ * Authenticate the connection and sync models.
+ * Called once at server startup.
  */
 export async function connectDB() {
-  if (cached.conn) {
-    return cached.conn;
-  }
-
-  if (!cached.promise) {
-    const uri = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/moviebooking";
-    mongoose.set("strictQuery", true);
-    cached.promise = mongoose.connect(uri).then((m) => {
-      console.log(`MongoDB connected: ${m.connection.host}/${m.connection.name}`);
-      return m;
-    });
-  }
-
-  try {
-    cached.conn = await cached.promise;
-  } catch (err) {
-    cached.promise = null;
-    console.error("MongoDB connection error:", err.message);
-    process.exit(1);
-  }
-
-  return cached.conn;
+  await sequelize.authenticate();
+  console.log("PostgreSQL connected via Sequelize");
+  await sequelize.sync();
+  return sequelize;
 }
 
 export default connectDB;
