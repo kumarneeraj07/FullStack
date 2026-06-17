@@ -2,7 +2,7 @@
   "id": "FEAT-004",
   "type": "fix",
   "description": "Address review findings: (1) Add defaultScope to User model excluding password, use User.unscoped() in login. (2) Use Sequelize.literal with array_cat/array_remove for atomic bookedSeats operations in booking.service.js (with SQLite fallback).",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Add defaultScope to User model that excludes the password field from queries by default.",
     "Update auth.controller.js login to use User.unscoped().findOne() so password is available for comparison.",
@@ -22,5 +22,5 @@
     "cd /projects/sandbox/FullStack/backend && node scripts/verify.mjs"
   ],
   "blocked_reason": null,
-  "findings": null
+  "findings": "Both review fixes implemented and verified. All 61 integration tests pass with SQLite. The defaultScope on User excludes password from all default queries - auth middleware (findByPk) no longer leaks password hash onto req.user. Login uses User.unscoped().findOne() to retrieve password for comparison. Atomic array_cat/array_remove via Sequelize.literal is used for PostgreSQL dialect, with SQLite fallback using the existing read-modify-write pattern (safe because SQLite serializes all writes anyway)."
 }
