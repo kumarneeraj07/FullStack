@@ -9,6 +9,6 @@
     "tests": "pass",
     "test_quality": "pass",
     "docker_build": "skipped",
-    "summary": "npm install succeeds. All 61 integration tests pass (verify.mjs with SQLite in-memory). App imports cleanly. No mongoose references remain. Vercel entry point works. Tests cover health check, auth register/login, RBAC, movie CRUD+search+pagination, theatre+screen, show+seatmap, booking lock/confirm/cancel, concurrency (unique constraint prevents double-booking), and reviews+rating updates."
+    "summary": "npm install succeeds. All 61 integration tests pass (verify.mjs with SQLite in-memory). App imports cleanly. No mongoose references remain. Vercel entry point works. Review findings addressed: User defaultScope excludes password, bookedSeats uses atomic SQL array_cat/array_remove on PostgreSQL. Tests cover: health, auth, RBAC, movie CRUD+search+pagination, theatre+screen, show+seatmap, booking lock/confirm/cancel, concurrency (unique constraint prevents double-booking), reviews+rating updates."
   }
 }
