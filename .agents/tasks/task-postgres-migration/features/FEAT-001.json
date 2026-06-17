@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "chore",
   "description": "Replace MongoDB/Mongoose dependencies with PostgreSQL/Sequelize and rewrite the database configuration, environment config, and all 7 models as Sequelize models with proper associations.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "In backend/package.json: remove 'mongoose' from dependencies, remove 'mongodb-memory-server' from devDependencies. Add 'sequelize': '^6.37.0', 'pg': '^8.12.0', 'pg-hstore': '^2.3.4' to dependencies.",
     "Rewrite backend/src/config/env.js: Replace mongoUri with databaseUrl (reads DATABASE_URL env var, default to 'postgresql://localhost:5432/moviebooking'). Keep all other env vars the same.",
@@ -33,5 +33,5 @@
     "cd /projects/sandbox/FullStack/backend && node -e \"import('./src/models/index.js').then(() => console.log('Models OK')).catch(e => { console.error(e); process.exit(1) })\""
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All models import successfully. npm install works with 2 moderate severity vulnerabilities (unrelated, from transitive deps). Sequelize instance exports correctly. No PostgreSQL server is available for live connection tests, but syntax and import validation pass."
 }

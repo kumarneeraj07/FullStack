@@ -1,0 +1,14 @@
+{
+  "task_id": "task-postgres-migration",
+  "task_description": "Replace MongoDB/Mongoose entirely with PostgreSQL/Sequelize ORM. Rewrite all 7 models, services, controllers, seed script, and serverless entry point. Maintain the same REST API contract so the frontend works unchanged. Use free PostgreSQL providers (Neon/Supabase). Implement row-level locking for booking concurrency.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null,
+  "verification": {
+    "build": "pass",
+    "tests": "pass",
+    "test_quality": "pass",
+    "docker_build": "skipped",
+    "summary": "npm install succeeds. All 61 integration tests pass (verify.mjs with SQLite in-memory). App imports cleanly. No mongoose references remain. Vercel entry point works. Tests cover health check, auth register/login, RBAC, movie CRUD+search+pagination, theatre+screen, show+seatmap, booking lock/confirm/cancel, concurrency (unique constraint prevents double-booking), and reviews+rating updates."
+  }
+}

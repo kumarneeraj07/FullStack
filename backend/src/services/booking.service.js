@@ -1,10 +1,12 @@
 import crypto from "crypto";
-import { Op, UniqueConstraintError } from "sequelize";
+import { Op, UniqueConstraintError, literal } from "sequelize";
 import { sequelize } from "../config/db.js";
 import { Show, Booking, SeatLock } from "../models/index.js";
 import { env } from "../config/env.js";
 import { ApiError } from "../utils/ApiError.js";
 import { priceSeats } from "./seat.service.js";
+
+const dialect = sequelize.getDialect();
 
 /**
  * Remove expired locks from the SeatLock table for a given show.
@@ -119,9 +121,21 @@ export async function confirmBooking({ showId, userId, seats }) {
     const { totalAmount } = await priceSeats(show, seats);
     const reference = `BK-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 
-    // Append seats to bookedSeats using array concatenation
-    const updatedBookedSeats = [...currentBooked, ...seats];
-    await show.update({ bookedSeats: updatedBookedSeats }, { transaction });
+    // Append seats to bookedSeats atomically
+    if (dialect === "postgres") {
+      // Use SQL-level array_cat for atomic append without read-modify-write
+      const seatsLiteral = seats.map((s) => `'${s.replace(/'/g, "''")}'`).join(",");
+      await Show.update(
+        {
+          bookedSeats: literal(`array_cat("bookedSeats", ARRAY[${seatsLiteral}]::varchar[])`),
+        },
+        { where: { id: showId }, transaction }
+      );
+    } else {
+      // SQLite fallback: read-modify-write (safe here because row is locked via transaction)
+      const updatedBookedSeats = [...currentBooked, ...seats];
+      await show.update({ bookedSeats: updatedBookedSeats }, { transaction });
+    }
 
     // Delete the locks
     await SeatLock.destroy({
@@ -167,15 +181,28 @@ export async function cancelBooking({ bookingId, userId, isAdmin }) {
     await booking.update({ status: "cancelled" }, { transaction });
 
     // Remove seats from show's bookedSeats
-    const show = await Show.findByPk(booking.showId, {
-      lock: transaction.LOCK.UPDATE,
-      transaction,
-    });
-    if (show) {
-      const updatedSeats = (show.bookedSeats || []).filter(
-        (s) => !booking.seats.includes(s)
+    if (dialect === "postgres") {
+      // Use SQL-level array_remove for atomic removal without read-modify-write
+      let expr = '"bookedSeats"';
+      for (const seat of booking.seats) {
+        expr = `array_remove(${expr}, '${seat.replace(/'/g, "''")}')`;
+      }
+      await Show.update(
+        { bookedSeats: literal(expr) },
+        { where: { id: booking.showId }, transaction }
       );
-      await show.update({ bookedSeats: updatedSeats }, { transaction });
+    } else {
+      // SQLite fallback: read-modify-write
+      const show = await Show.findByPk(booking.showId, {
+        lock: transaction.LOCK.UPDATE,
+        transaction,
+      });
+      if (show) {
+        const updatedSeats = (show.bookedSeats || []).filter(
+          (s) => !booking.seats.includes(s)
+        );
+        await show.update({ bookedSeats: updatedSeats }, { transaction });
+      }
     }
   });
 

@@ -1,0 +1,26 @@
+{
+  "id": "FEAT-004",
+  "type": "fix",
+  "description": "Address review findings: (1) Add defaultScope to User model excluding password, use User.unscoped() in login. (2) Use Sequelize.literal with array_cat/array_remove for atomic bookedSeats operations in booking.service.js (with SQLite fallback).",
+  "status": "in_progress",
+  "steps": [
+    "Add defaultScope to User model that excludes the password field from queries by default.",
+    "Update auth.controller.js login to use User.unscoped().findOne() so password is available for comparison.",
+    "Update booking.service.js confirmBooking to use Sequelize.literal with array_cat for PostgreSQL, with SQLite fallback using read-modify-write.",
+    "Update booking.service.js cancelBooking to use Sequelize.literal with array_remove for PostgreSQL, with SQLite fallback."
+  ],
+  "acceptance_criteria": [
+    "User.findByPk() and User.findOne() no longer return password field by default",
+    "Login still works (uses unscoped query to get password for comparison)",
+    "confirmBooking uses SQL-level array_cat on PostgreSQL for atomic append",
+    "cancelBooking uses SQL-level array_remove on PostgreSQL for atomic removal",
+    "SQLite fallback still works for tests (read-modify-write pattern)",
+    "All verify.mjs tests pass"
+  ],
+  "verification": [
+    "cd /projects/sandbox/FullStack/backend && node -e \"import('./src/app.js').then(() => console.log('OK')).catch(e => { console.error(e); process.exit(1) })\"",
+    "cd /projects/sandbox/FullStack/backend && node scripts/verify.mjs"
+  ],
+  "blocked_reason": null,
+  "findings": null
+}

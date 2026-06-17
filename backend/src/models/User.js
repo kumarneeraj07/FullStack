@@ -41,6 +41,9 @@ User.init(
     modelName: "User",
     tableName: "users",
     timestamps: true,
+    defaultScope: {
+      attributes: { exclude: ["password"] },
+    },
     hooks: {
       beforeCreate: async (user) => {
         if (user.password) {
