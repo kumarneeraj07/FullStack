@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const baseURL = import.meta.env.VITE_API_URL || "/api";
+const baseURL = import.meta.env.VITE_API_URL || "/_/backend/api";
 
 /**
  * Pre-configured Axios instance. A request interceptor attaches the JWT
