@@ -29,12 +29,7 @@ export function createApp() {
 
   app.use(
     cors({
-      origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps, curl, server-to-server)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) return callback(null, true);
-        callback(new Error("Not allowed by CORS"));
-      },
+      origin: true,
       credentials: true,
     })
   );
@@ -44,6 +39,9 @@ export function createApp() {
   if (env.nodeEnv !== "test") app.use(morgan("dev"));
 
   app.use("/api", routes);
+  // Also mount at root — Vercel experimentalServices may strip the prefix
+  // and deliver just /movies instead of /api/movies
+  app.use("/", routes);
 
   // 404 + centralized error handling (must be last).
   app.use(notFoundHandler);
