@@ -1,4 +1,5 @@
 import { Sequelize } from "sequelize";
+import pg from "pg";
 import { env } from "./env.js";
 
 /**
@@ -10,11 +11,10 @@ function getSequelize() {
     return global.__sequelize;
   }
 
-  const isProduction = env.nodeEnv === "production";
   const isSqlite = env.databaseUrl.startsWith("sqlite:");
 
   const options = {
-    logging: isProduction ? false : false,
+    logging: false,
     pool: {
       max: 5,
       min: 0,
@@ -27,22 +27,28 @@ function getSequelize() {
     options.dialect = "sqlite";
     options.storage = ":memory:";
   } else {
+    // Explicitly set dialect to "postgres" (not "postgresql" which comes from URL parsing)
     options.dialect = "postgres";
+    // Pass pg module directly so Vercel's bundler includes it
+    options.dialectModule = pg;
     options.dialectOptions = {
       ssl: {
         require: true,
         rejectUnauthorized: false,
       },
-      // Neon's connection pooler doesn't support prepared statements
-      prepareThreshold: 0,
     };
-    // Disable prepared statements at the pg level for Neon pooler compatibility
-    options.dialectModule = undefined;
+  }
+
+  // Normalize the URL: replace "postgresql://" with "postgres://" 
+  // because Sequelize only recognizes "postgres" as a dialect name
+  let dbUrl = env.databaseUrl;
+  if (dbUrl.startsWith("postgresql://")) {
+    dbUrl = dbUrl.replace("postgresql://", "postgres://");
   }
 
   const sequelize = isSqlite
     ? new Sequelize(options)
-    : new Sequelize(env.databaseUrl, options);
+    : new Sequelize(dbUrl, options);
 
   global.__sequelize = sequelize;
   return sequelize;
@@ -52,16 +58,13 @@ export const sequelize = getSequelize();
 
 /**
  * Authenticate the connection and sync models.
- * Called once at server startup. Uses alter:false to avoid DDL issues
- * with Neon's connection pooler.
+ * Called once at server startup.
  */
 let synced = false;
 export async function connectDB() {
   await sequelize.authenticate();
   if (!synced) {
     console.log("PostgreSQL connected via Sequelize");
-    // Only create tables if they don't exist (no ALTER TABLE).
-    // Tables are created by the seed script; this is just a safety net.
     await sequelize.sync({ alter: false });
     synced = true;
   }
