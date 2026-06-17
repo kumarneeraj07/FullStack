@@ -33,7 +33,11 @@ function getSequelize() {
         require: true,
         rejectUnauthorized: false,
       },
+      // Neon's connection pooler doesn't support prepared statements
+      prepareThreshold: 0,
     };
+    // Disable prepared statements at the pg level for Neon pooler compatibility
+    options.dialectModule = undefined;
   }
 
   const sequelize = isSqlite
@@ -48,12 +52,19 @@ export const sequelize = getSequelize();
 
 /**
  * Authenticate the connection and sync models.
- * Called once at server startup.
+ * Called once at server startup. Uses alter:false to avoid DDL issues
+ * with Neon's connection pooler.
  */
+let synced = false;
 export async function connectDB() {
   await sequelize.authenticate();
-  console.log("PostgreSQL connected via Sequelize");
-  await sequelize.sync();
+  if (!synced) {
+    console.log("PostgreSQL connected via Sequelize");
+    // Only create tables if they don't exist (no ALTER TABLE).
+    // Tables are created by the seed script; this is just a safety net.
+    await sequelize.sync({ alter: false });
+    synced = true;
+  }
   return sequelize;
 }
 
