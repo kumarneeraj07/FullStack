@@ -1,0 +1,488 @@
+/* ===== RESET & BASE ===== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #0f0f0f;
+  --surface: #1a1a2e;
+  --card: #16213e;
+  --primary: #e94560;
+  --primary-dark: #c0392b;
+  --text: #eaeaea;
+  --muted: #888;
+  --success: #27ae60;
+  --danger: #e74c3c;
+  --radius: 8px;
+  --gap: 16px;
+}
+
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* ===== LAYOUT ===== */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px var(--gap);
+}
+
+/* ===== NAVBAR ===== */
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.brand {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+.brand:hover {
+  text-decoration: none;
+}
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.nav-links a {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+.nav-user {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* ===== BUTTONS ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--primary-dark);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--muted);
+}
+.btn-ghost:hover {
+  border-color: var(--text);
+}
+
+/* ===== FORM / AUTH ===== */
+.auth-card {
+  max-width: 400px;
+  margin: 60px auto;
+  background: var(--surface);
+  padding: 32px;
+  border-radius: var(--radius);
+}
+.auth-card h2 {
+  margin-bottom: 16px;
+}
+.auth-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.auth-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.auth-card input,
+.review-form input,
+.review-form select,
+.search {
+  padding: 10px 12px;
+  border: 1px solid #333;
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+.auth-card input:focus,
+.search:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+/* ===== MOVIE GRID ===== */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.search {
+  width: 260px;
+}
+.movie-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--gap);
+}
+.movie-card {
+  display: block;
+  background: var(--card);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: transform 0.2s;
+  color: var(--text);
+}
+.movie-card:hover {
+  transform: translateY(-4px);
+  text-decoration: none;
+}
+.poster {
+  position: relative;
+  aspect-ratio: 2/3;
+  background: #222;
+  overflow: hidden;
+}
+.poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.poster-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 8px;
+}
+.poster.lg {
+  width: 240px;
+  min-width: 180px;
+  aspect-ratio: 2/3;
+  border-radius: var(--radius);
+  flex-shrink: 0;
+}
+.poster.sm {
+  width: 80px;
+  min-width: 80px;
+  aspect-ratio: 2/3;
+  border-radius: var(--radius);
+}
+.rating-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #ffc107;
+}
+.movie-card-body {
+  padding: 10px;
+}
+.movie-card-body h3 {
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+}
+
+/* ===== MOVIE DETAILS ===== */
+.details-hero {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 32px;
+}
+.rating-line {
+  color: #ffc107;
+  font-weight: 600;
+  margin: 8px 0;
+}
+.tags {
+  color: var(--muted);
+  margin: 4px 0 12px;
+}
+
+/* ===== SHOWS ===== */
+.show-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.show-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 16px;
+  background: var(--card);
+  border: 1px solid #333;
+  border-radius: var(--radius);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: border-color 0.2s;
+}
+.show-chip:hover {
+  border-color: var(--primary);
+}
+.show-chip span {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+/* ===== REVIEWS ===== */
+.review-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.review-form input {
+  flex: 1;
+}
+.review-list {
+  list-style: none;
+}
+.review-list li {
+  padding: 10px 0;
+  border-bottom: 1px solid #222;
+}
+
+/* ===== SEAT MAP ===== */
+.seatmap {
+  margin: 24px 0;
+}
+.screen-indicator {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+  border-bottom: 3px solid var(--muted);
+  padding-bottom: 8px;
+  margin-bottom: 20px;
+  letter-spacing: 3px;
+}
+.seat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.row-label {
+  width: 24px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.seats {
+  display: flex;
+  gap: 4px;
+}
+.seat {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.seat.available {
+  background: #2d6a4f;
+  color: #fff;
+}
+.seat.available:hover {
+  background: #40916c;
+}
+.seat.selected {
+  background: var(--primary) !important;
+  color: #fff;
+}
+.seat.booked {
+  background: #444;
+  color: #666;
+  cursor: not-allowed;
+}
+.seat.locked {
+  background: #d4a017;
+  color: #000;
+  cursor: not-allowed;
+}
+.seat.type-recliner {
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+}
+
+.legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.legend span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.box {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+.box.available {
+  background: #2d6a4f;
+}
+.box.selected {
+  background: var(--primary);
+}
+.box.booked {
+  background: #444;
+}
+.box.locked {
+  background: #d4a017;
+}
+
+/* ===== BOOKING / CHECKOUT BAR ===== */
+.booking-head {
+  margin-bottom: 16px;
+}
+.checkout-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  margin-top: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.hold-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.timer {
+  font-size: 0.85rem;
+  color: #ffc107;
+  font-weight: 600;
+}
+
+/* ===== MY BOOKINGS ===== */
+.booking-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.booking-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--surface);
+  padding: 16px;
+  border-radius: var(--radius);
+}
+.booking-info h3 {
+  font-size: 1rem;
+}
+.status-tag {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.status-tag.confirmed {
+  background: var(--success);
+  color: #fff;
+}
+.status-tag.cancelled {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* ===== MISC ===== */
+.loader {
+  text-align: center;
+  padding: 48px;
+  color: var(--muted);
+}
+.error {
+  color: var(--danger);
+  padding: 8px 0;
+}
+.success {
+  color: var(--success);
+  padding: 8px 0;
+}
+.muted {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+  .details-hero {
+    flex-direction: column;
+  }
+  .poster.lg {
+    width: 100%;
+  }
+  .search {
+    width: 100%;
+  }
+  .navbar {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
