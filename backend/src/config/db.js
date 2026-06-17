@@ -28,14 +28,12 @@ function getSequelize() {
     options.storage = ":memory:";
   } else {
     options.dialect = "postgres";
-    if (isProduction) {
-      options.dialectOptions = {
-        ssl: {
-          require: true,
-          rejectUnauthorized: false,
-        },
-      };
-    }
+    options.dialectOptions = {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false,
+      },
+    };
   }
 
   const sequelize = isSqlite
