@@ -1,5 +1,7 @@
 import { createApp } from "../src/app.js";
 import { connectDB } from "../src/config/db.js";
+// Force pg to be bundled by Vercel — explicit side-effect import
+import "pg";
 // Import models to register associations before any queries run
 import "../src/models/index.js";
 

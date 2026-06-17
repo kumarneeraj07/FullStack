@@ -3,8 +3,7 @@ import pg from "pg";
 import { env } from "./env.js";
 
 /**
- * Create or reuse a Sequelize instance, cached globally for serverless
- * warm starts so we don't open a new connection pool on every invocation.
+ * Create or reuse a Sequelize instance.
  */
 function getSequelize() {
   if (global.__sequelize) {
@@ -27,20 +26,20 @@ function getSequelize() {
     options.dialect = "sqlite";
     options.storage = ":memory:";
   } else {
-    // Explicitly set dialect to "postgres" (not "postgresql" which comes from URL parsing)
     options.dialect = "postgres";
-    // Pass pg module directly so Vercel's bundler includes it
     options.dialectModule = pg;
-    options.dialectOptions = {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false,
-      },
-    };
+    // Only use SSL if connecting to a cloud provider (not local)
+    if (env.databaseUrl.includes("neon.tech") || env.databaseUrl.includes("supabase") || env.nodeEnv === "production") {
+      options.dialectOptions = {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false,
+        },
+      };
+    }
   }
 
-  // Normalize the URL: replace "postgresql://" with "postgres://" 
-  // because Sequelize only recognizes "postgres" as a dialect name
+  // Normalize: "postgresql://" -> "postgres://" for Sequelize compatibility
   let dbUrl = env.databaseUrl;
   if (dbUrl.startsWith("postgresql://")) {
     dbUrl = dbUrl.replace("postgresql://", "postgres://");
@@ -57,8 +56,7 @@ function getSequelize() {
 export const sequelize = getSequelize();
 
 /**
- * Authenticate the connection and sync models.
- * Called once at server startup.
+ * Authenticate and sync tables.
  */
 let synced = false;
 export async function connectDB() {
