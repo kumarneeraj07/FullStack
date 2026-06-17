@@ -7,28 +7,14 @@
  *
  * Run with: npm run seed
  */
-import mongoose from "mongoose";
-import { connectDB } from "../config/db.js";
-import { User } from "../models/User.js";
-import { Movie } from "../models/Movie.js";
-import { Theatre } from "../models/Theatre.js";
-import { Screen } from "../models/Screen.js";
-import { Show } from "../models/Show.js";
-import { Booking } from "../models/Booking.js";
-import { Review } from "../models/Review.js";
+import { sequelize, connectDB } from "../config/db.js";
+import { User, Movie, Theatre, Screen, Show, Booking, Review, SeatLock } from "../models/index.js";
 
 async function seed() {
   await connectDB();
   console.log("Clearing existing data...");
-  await Promise.all([
-    User.deleteMany({}),
-    Movie.deleteMany({}),
-    Theatre.deleteMany({}),
-    Screen.deleteMany({}),
-    Show.deleteMany({}),
-    Booking.deleteMany({}),
-    Review.deleteMany({}),
-  ]);
+  // Use truncate with cascade to handle foreign key constraints
+  await sequelize.sync({ force: true });
 
   console.log("Creating users...");
   await User.create({
@@ -45,7 +31,7 @@ async function seed() {
   });
 
   console.log("Creating movies...");
-  const movies = await Movie.create([
+  const movies = await Movie.bulkCreate([
     {
       title: "Interstellar",
       description: "A team travels through a wormhole in search of a new home for humanity.",
@@ -54,7 +40,7 @@ async function seed() {
       durationMinutes: 169,
       certification: "UA",
       posterUrl: "https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg",
-      releaseDate: new Date("2014-11-07"),
+      releaseDate: "2014-11-07",
     },
     {
       title: "Inception",
@@ -64,7 +50,7 @@ async function seed() {
       durationMinutes: 148,
       certification: "UA",
       posterUrl: "https://image.tmdb.org/t/p/w500/oYuLEt3zVCKq57qu2F8dT7NIa6f.jpg",
-      releaseDate: new Date("2010-07-16"),
+      releaseDate: "2010-07-16",
     },
     {
       title: "Dune: Part Two",
@@ -74,9 +60,9 @@ async function seed() {
       durationMinutes: 166,
       certification: "UA",
       posterUrl: "https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg",
-      releaseDate: new Date("2024-03-01"),
+      releaseDate: "2024-03-01",
     },
-  ]);
+  ], { returning: true });
 
   console.log("Creating theatre + screen...");
   const theatre = await Theatre.create({
@@ -86,7 +72,7 @@ async function seed() {
   });
 
   const screen = await Screen.create({
-    theatre: theatre._id,
+    theatreId: theatre.id,
     name: "Audi 1",
     rows: [
       { label: "A", seats: 10, seatType: "premium", price: 350 },
@@ -106,35 +92,35 @@ async function seed() {
     return d;
   };
 
-  await Show.create([
+  await Show.bulkCreate([
     {
-      movie: movies[0]._id,
-      theatre: theatre._id,
-      screen: screen._id,
+      movieId: movies[0].id,
+      theatreId: theatre.id,
+      screenId: screen.id,
       startTime: makeTime(0, 18),
       format: "IMAX",
       language: "English",
     },
     {
-      movie: movies[0]._id,
-      theatre: theatre._id,
-      screen: screen._id,
+      movieId: movies[0].id,
+      theatreId: theatre.id,
+      screenId: screen.id,
       startTime: makeTime(0, 21),
       format: "2D",
       language: "English",
     },
     {
-      movie: movies[1]._id,
-      theatre: theatre._id,
-      screen: screen._id,
+      movieId: movies[1].id,
+      theatreId: theatre.id,
+      screenId: screen.id,
       startTime: makeTime(1, 19),
       format: "2D",
       language: "English",
     },
     {
-      movie: movies[2]._id,
-      theatre: theatre._id,
-      screen: screen._id,
+      movieId: movies[2].id,
+      theatreId: theatre.id,
+      screenId: screen.id,
       startTime: makeTime(1, 16),
       format: "3D",
       language: "English",
@@ -145,12 +131,12 @@ async function seed() {
   console.log("  Admin login: admin@example.com / admin123");
   console.log("  User login:  user@example.com / user123");
 
-  await mongoose.connection.close();
+  await sequelize.close();
   process.exit(0);
 }
 
 seed().catch(async (err) => {
   console.error("Seed failed:", err);
-  await mongoose.connection.close();
+  await sequelize.close();
   process.exit(1);
 });

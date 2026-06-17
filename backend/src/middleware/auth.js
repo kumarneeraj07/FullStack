@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
-import { User } from "../models/User.js";
+import { User } from "../models/index.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
@@ -22,7 +22,7 @@ export const authenticate = asyncHandler(async (req, _res, next) => {
     throw ApiError.unauthorized("Invalid or expired token");
   }
 
-  const user = await User.findById(payload.sub);
+  const user = await User.findByPk(payload.sub);
   if (!user) throw ApiError.unauthorized("User no longer exists");
 
   req.user = user;

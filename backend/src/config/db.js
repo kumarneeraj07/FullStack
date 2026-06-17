@@ -11,25 +11,36 @@ function getSequelize() {
   }
 
   const isProduction = env.nodeEnv === "production";
+  const isSqlite = env.databaseUrl.startsWith("sqlite:");
 
-  const sequelize = new Sequelize(env.databaseUrl, {
-    dialect: "postgres",
-    logging: isProduction ? false : console.log,
+  const options = {
+    logging: isProduction ? false : false,
     pool: {
       max: 5,
       min: 0,
       idle: 10000,
       acquire: 30000,
     },
-    dialectOptions: isProduction
-      ? {
-          ssl: {
-            require: true,
-            rejectUnauthorized: false,
-          },
-        }
-      : {},
-  });
+  };
+
+  if (isSqlite) {
+    options.dialect = "sqlite";
+    options.storage = ":memory:";
+  } else {
+    options.dialect = "postgres";
+    if (isProduction) {
+      options.dialectOptions = {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false,
+        },
+      };
+    }
+  }
+
+  const sequelize = isSqlite
+    ? new Sequelize(options)
+    : new Sequelize(env.databaseUrl, options);
 
   global.__sequelize = sequelize;
   return sequelize;

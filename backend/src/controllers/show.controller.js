@@ -1,55 +1,83 @@
-import { Show } from "../models/Show.js";
-import { Screen } from "../models/Screen.js";
+import { Op } from "sequelize";
+import { Show, Movie, Theatre, Screen } from "../models/index.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { sendSuccess } from "../utils/ApiResponse.js";
 import { buildSeatMap } from "../services/seat.service.js";
 
 /**
+ * Helper to add _id alias recursively on plain objects.
+ */
+function addIdAlias(obj) {
+  if (!obj || typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) return obj.map(addIdAlias);
+  const result = { ...obj, _id: obj.id };
+  return result;
+}
+
+/**
  * GET /api/shows?movie=&city=&date=
  * Lists upcoming shows, optionally filtered by movie / city / date.
  */
 export const listShows = asyncHandler(async (req, res) => {
-  const filter = {};
-  if (req.query.movie) filter.movie = req.query.movie;
+  const where = {};
+  if (req.query.movie) where.movieId = req.query.movie;
 
   if (req.query.date) {
     const start = new Date(req.query.date);
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
-    filter.startTime = { $gte: start, $lt: end };
+    where.startTime = { [Op.gte]: start, [Op.lt]: end };
   } else {
-    filter.startTime = { $gte: new Date() };
+    where.startTime = { [Op.gte]: new Date() };
   }
 
-  let query = Show.find(filter)
-    .populate("movie", "title posterUrl durationMinutes")
-    .populate("theatre", "name city")
-    .sort("startTime")
-    .lean();
+  const theatreWhere = {};
+  if (req.query.city) theatreWhere.city = req.query.city;
 
-  let shows = await query;
-  if (req.query.city) {
-    shows = shows.filter((s) => s.theatre?.city === req.query.city);
-  }
-  // Hide internal lock details from the list response.
-  shows = shows.map(({ locks, ...rest }) => rest);
-  return sendSuccess(res, { data: shows });
+  const shows = await Show.findAll({
+    where,
+    include: [
+      { model: Movie, attributes: ["id", "title", "posterUrl", "durationMinutes"] },
+      { model: Theatre, attributes: ["id", "name", "city"], where: req.query.city ? theatreWhere : undefined },
+    ],
+    order: [["startTime", "ASC"]],
+  });
+
+  const data = shows.map((s) => {
+    const plain = s.get({ plain: true });
+    const movie = plain.Movie ? { ...plain.Movie, _id: plain.Movie.id } : null;
+    const theatre = plain.Theatre ? { ...plain.Theatre, _id: plain.Theatre.id } : null;
+    const { Movie: _m, Theatre: _t, ...rest } = plain;
+    return { ...rest, _id: rest.id, movie, theatre };
+  });
+
+  return sendSuccess(res, { data });
 });
 
-/** GET /api/shows/:id — show details with a live seat map */
+/** GET /api/shows/:id -- show details with a live seat map */
 export const getShow = asyncHandler(async (req, res) => {
-  const show = await Show.findById(req.params.id)
-    .populate("movie", "title posterUrl durationMinutes certification")
-    .populate("theatre", "name city address");
+  const show = await Show.findByPk(req.params.id, {
+    include: [
+      { model: Movie, attributes: ["id", "title", "posterUrl", "durationMinutes", "certification"] },
+      { model: Theatre, attributes: ["id", "name", "city", "address"] },
+    ],
+  });
   if (!show) throw ApiError.notFound("Show not found");
 
   const seatMap = await buildSeatMap(show);
-  const { locks, ...showData } = show.toObject();
+  const plain = show.get({ plain: true });
+
+  const movie = plain.Movie ? { ...plain.Movie, _id: plain.Movie.id } : null;
+  const theatre = plain.Theatre ? { ...plain.Theatre, _id: plain.Theatre.id } : null;
+  const { Movie: _m, Theatre: _t, ...showData } = plain;
 
   return sendSuccess(res, {
     data: {
       ...showData,
+      _id: showData.id,
+      movie,
+      theatre,
       seatLayout: seatMap.rows,
       screenName: seatMap.screenName,
     },
@@ -58,20 +86,28 @@ export const getShow = asyncHandler(async (req, res) => {
 
 /** POST /api/shows  (admin) */
 export const createShow = asyncHandler(async (req, res) => {
-  const { screen: screenId } = req.body;
-  const screen = await Screen.findById(screenId);
+  const { screen: screenId, screenId: altScreenId, movie: movieId, movieId: altMovieId } = req.body;
+  const lookupScreenId = screenId || altScreenId;
+  const lookupMovieId = movieId || altMovieId;
+
+  const screen = await Screen.findByPk(lookupScreenId);
   if (!screen) throw ApiError.notFound("Screen not found");
 
   const show = await Show.create({
-    ...req.body,
-    theatre: screen.theatre, // derive theatre from the screen to stay consistent
+    movieId: lookupMovieId,
+    screenId: screen.id,
+    theatreId: screen.theatreId, // derive theatre from the screen to stay consistent
+    startTime: req.body.startTime,
+    format: req.body.format,
+    language: req.body.language,
   });
-  return sendSuccess(res, { statusCode: 201, message: "Show created", data: show });
+  return sendSuccess(res, { statusCode: 201, message: "Show created", data: addIdAlias(show.get({ plain: true })) });
 });
 
 /** DELETE /api/shows/:id  (admin) */
 export const deleteShow = asyncHandler(async (req, res) => {
-  const show = await Show.findByIdAndDelete(req.params.id);
+  const show = await Show.findByPk(req.params.id);
   if (!show) throw ApiError.notFound("Show not found");
+  await show.destroy();
   return sendSuccess(res, { message: "Show deleted" });
 });

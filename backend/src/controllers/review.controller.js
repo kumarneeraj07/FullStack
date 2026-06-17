@@ -1,43 +1,64 @@
-import { Review } from "../models/Review.js";
-import { Movie } from "../models/Movie.js";
+import { Sequelize } from "sequelize";
+import { Review, Movie, User } from "../models/index.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { sendSuccess, buildPaginationMeta } from "../utils/ApiResponse.js";
+
+/**
+ * Helper to add _id alias to a plain object for backward compatibility.
+ */
+function addIdAlias(obj) {
+  if (!obj || typeof obj !== "object") return obj;
+  return { ...obj, _id: obj.id };
+}
 
 /**
  * Recompute and persist a movie's rating summary from its reviews.
  * Keeps the denormalized ratingAverage/ratingCount in sync.
  */
 async function refreshMovieRating(movieId) {
-  const [agg] = await Review.aggregate([
-    { $match: { movie: movieId } },
-    { $group: { _id: "$movie", avg: { $avg: "$rating" }, count: { $sum: 1 } } },
-  ]);
-  await Movie.findByIdAndUpdate(movieId, {
-    ratingAverage: agg ? Math.round(agg.avg * 10) / 10 : 0,
-    ratingCount: agg ? agg.count : 0,
+  const result = await Review.findOne({
+    where: { movieId },
+    attributes: [
+      [Sequelize.fn("AVG", Sequelize.col("rating")), "avg"],
+      [Sequelize.fn("COUNT", Sequelize.col("id")), "count"],
+    ],
+    raw: true,
   });
+
+  const avg = result && result.avg ? Math.round(parseFloat(result.avg) * 10) / 10 : 0;
+  const count = result && result.count ? parseInt(result.count, 10) : 0;
+
+  await Movie.update(
+    { ratingAverage: avg, ratingCount: count },
+    { where: { id: movieId } }
+  );
 }
 
 /** GET /api/movies/:movieId/reviews  (paginated) */
 export const listReviews = asyncHandler(async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10));
-  const skip = (page - 1) * limit;
-  const filter = { movie: req.params.movieId };
+  const offset = (page - 1) * limit;
+  const where = { movieId: req.params.movieId };
 
-  const [items, total] = await Promise.all([
-    Review.find(filter)
-      .populate("user", "name")
-      .sort("-createdAt")
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    Review.countDocuments(filter),
-  ]);
+  const { rows: items, count: total } = await Review.findAndCountAll({
+    where,
+    include: [{ model: User, attributes: ["id", "name"] }],
+    order: [["createdAt", "DESC"]],
+    offset,
+    limit,
+  });
+
+  const data = items.map((r) => {
+    const plain = r.get({ plain: true });
+    const user = plain.User ? { ...plain.User, _id: plain.User.id } : null;
+    const { User: _u, ...rest } = plain;
+    return { ...rest, _id: rest.id, user };
+  });
 
   return sendSuccess(res, {
-    data: items,
+    data,
     meta: buildPaginationMeta({ page, limit, total }),
   });
 });
@@ -50,27 +71,28 @@ export const upsertReview = asyncHandler(async (req, res) => {
   const { movieId } = req.params;
   const { rating, comment } = req.body;
 
-  const movie = await Movie.findById(movieId);
+  const movie = await Movie.findByPk(movieId);
   if (!movie) throw ApiError.notFound("Movie not found");
 
-  const review = await Review.findOneAndUpdate(
-    { movie: movieId, user: req.user._id },
-    { rating, comment },
-    { new: true, upsert: true, setDefaultsOnInsert: true }
+  // Sequelize upsert: returns [instance, created]
+  const [review] = await Review.upsert(
+    { movieId, userId: req.user.id, rating, comment: comment || "" },
+    { returning: true }
   );
 
-  await refreshMovieRating(movie._id);
-  return sendSuccess(res, { statusCode: 201, message: "Review saved", data: review });
+  await refreshMovieRating(movieId);
+  return sendSuccess(res, { statusCode: 201, message: "Review saved", data: addIdAlias(review.get({ plain: true })) });
 });
 
 /** DELETE /api/movies/:movieId/reviews/:id */
 export const deleteReview = asyncHandler(async (req, res) => {
-  const review = await Review.findById(req.params.id);
+  const review = await Review.findByPk(req.params.id);
   if (!review) throw ApiError.notFound("Review not found");
-  if (String(review.user) !== String(req.user._id) && req.user.role !== "admin") {
+  if (review.userId !== req.user.id && req.user.role !== "admin") {
     throw ApiError.forbidden("You cannot delete this review");
   }
-  await review.deleteOne();
-  await refreshMovieRating(review.movie);
+  const movieId = review.movieId;
+  await review.destroy();
+  await refreshMovieRating(movieId);
   return sendSuccess(res, { message: "Review deleted" });
 });

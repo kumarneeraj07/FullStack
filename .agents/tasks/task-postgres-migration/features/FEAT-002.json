@@ -1,0 +1,37 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Rewrite all controllers, services, middleware, and utilities to use Sequelize queries instead of Mongoose. Maintain the exact same REST API contract (routes, request/response shapes). Implement PostgreSQL row-level locking (SELECT FOR UPDATE) for the booking seat-lock to prevent double booking.",
+  "status": "in_progress",
+  "steps": [
+    "Rewrite backend/src/middleware/auth.js: Change User.findById(payload.sub) to User.findByPk(payload.sub). The user object shape stays the same (id, name, email, role). Set req.user with the Sequelize instance.",
+    "Rewrite backend/src/middleware/errorHandler.js: Replace Mongoose-specific error handling (err.code === 11000, err.name === 'ValidationError', err.name === 'CastError') with Sequelize equivalents: SequelizeUniqueConstraintError (409), SequelizeValidationError (400), SequelizeDatabaseError for invalid UUIDs (400).",
+    "Rewrite backend/src/services/token.service.js: Change user._id.toString() to user.id (Sequelize uses .id directly, UUIDs are already strings).",
+    "Rewrite backend/src/utils/withTransaction.js: Replace mongoose.startSession() with sequelize.transaction(). Export a function that takes work(transaction) and wraps it in sequelize.transaction(). Import sequelize from config/db.js.",
+    "Rewrite backend/src/controllers/auth.controller.js: Replace User.findOne({email}) with User.findOne({where:{email}}). Replace User.create({...}) with User.create({...}). The publicUser helper should use u.id instead of u._id. For login, query with attributes including password (since select:false is now handled by defaultScope excluding password, or explicitly include password in findOne).",
+    "Rewrite backend/src/controllers/movie.controller.js: Replace Movie.find/findById/create/findByIdAndUpdate/findByIdAndDelete with Sequelize equivalents (findAll with where/order/offset/limit, findByPk, create, update, destroy). Handle text search with Op.iLike on title. Handle pagination with findAndCountAll. Return plain objects with { raw: true } or .get({plain:true}).",
+    "Rewrite backend/src/controllers/theatre.controller.js: Replace Theatre.find/findById/create and Screen.find with Sequelize equivalents. For getTheatre, use Theatre.findByPk with include Screen.",
+    "Rewrite backend/src/controllers/show.controller.js: Replace Show.find/findById with Sequelize findAll/findByPk with includes (Movie, Theatre). Filter by city using include with where clause or filter after. Build seat map using the new SeatLock model. For createShow, look up Screen.findByPk to get theatreId.",
+    "Rewrite backend/src/controllers/review.controller.js: Replace Review.find/aggregate with Sequelize findAll/findAndCountAll. For upsertReview, use Review.upsert() or findOne + create/update. For refreshMovieRating, use Review.findAll with Sequelize.fn('AVG') and Sequelize.fn('COUNT'). Include User association for listReviews.",
+    "Rewrite backend/src/controllers/booking.controller.js: Update to work with new booking.service.js. For myBookings, use Booking.findAll with nested includes (Show -> Movie, Show -> Theatre). Ensure response shape matches frontend expectations (nested show.movie.title, show.theatre.name etc.).",
+    "Rewrite backend/src/services/seat.service.js: Replace Screen.findById with Screen.findByPk. Load locks from SeatLock model (SeatLock.findAll where showId and expiresAt > now). Build seat map from screen.rows (JSONB field). priceSeats works similarly but reads from screen.rows JSONB.",
+    "Rewrite backend/src/services/booking.service.js - this is the CRITICAL file for double-booking prevention. Implement: (1) lockSeats: Use a PostgreSQL transaction with SERIALIZABLE isolation or use INSERT with unique constraint on SeatLock(showId, seat). First delete expired locks, then check bookedSeats array on Show does not contain requested seats, then INSERT INTO seat_locks. If unique constraint violation, throw 409. (2) confirmBooking: In a transaction, SELECT FROM seat_locks WHERE showId AND seat IN seats AND userId FOR UPDATE. Verify all seats locked by user and not expired. Then UPDATE show SET bookedSeats = bookedSeats || newSeats, DELETE FROM seat_locks WHERE those seats, INSERT INTO bookings. (3) cancelBooking: In transaction, update booking status, remove seats from show.bookedSeats using array_remove. (4) releaseSeats: DELETE FROM seat_locks WHERE showId AND userId AND seat IN seats.",
+    "Ensure all controller responses maintain the same shape: objects should have 'id' field (not '_id'). Add toJSON transforms or getter aliases if needed. The frontend uses _id in some places - check frontend/src references and ensure backend returns 'id' field (the frontend Axios client may use _id or id - both should work if we alias).",
+    "Update the response shape: Mongoose returns _id by default. Sequelize returns id. The frontend may rely on _id. To maintain compatibility, add a model-level toJSON hook or a response transformer that includes both _id and id fields in all responses (set _id = id)."
+  ],
+  "acceptance_criteria": [
+    "All controllers import from Sequelize models (no mongoose imports anywhere in src/)",
+    "The auth middleware uses User.findByPk instead of User.findById",
+    "The booking service uses PostgreSQL transactions with row-level locking for seat reservation",
+    "The error handler catches Sequelize-specific errors (UniqueConstraintError, ValidationError)",
+    "All API responses maintain the same JSON shape (include _id field mapped from id for backward compatibility)",
+    "Running 'node -e \"import('./src/app.js')\"' from backend/ resolves all imports without error",
+    "No references to mongoose remain in any src/ file"
+  ],
+  "verification": [
+    "cd /projects/sandbox/FullStack/backend && node -e \"import('./src/app.js').then(() => console.log('App OK')).catch(e => { console.error(e); process.exit(1) })\"",
+    "cd /projects/sandbox/FullStack/backend && grep -r 'mongoose' src/ && echo 'FAIL: mongoose still referenced' || echo 'PASS: no mongoose references'"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

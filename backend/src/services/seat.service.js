@@ -1,4 +1,5 @@
-import { Screen } from "../models/Screen.js";
+import { Op } from "sequelize";
+import { Screen, SeatLock } from "../models/index.js";
 
 /**
  * Build the seat layout for a show by combining the screen's physical
@@ -10,15 +11,20 @@ import { Screen } from "../models/Screen.js";
  * `now` lets callers treat expired locks as released.
  */
 export async function buildSeatMap(show, now = new Date()) {
-  const screen = await Screen.findById(show.screen).lean();
+  const screen = await Screen.findByPk(show.screenId);
   if (!screen) return { rows: [], screenName: null };
 
-  const booked = new Set(show.bookedSeats);
-  const lockedByOthers = new Set(
-    (show.locks || [])
-      .filter((l) => l.expiresAt > now)
-      .map((l) => l.seat)
-  );
+  const booked = new Set(show.bookedSeats || []);
+
+  // Load active locks from the SeatLock table
+  const locks = await SeatLock.findAll({
+    where: {
+      showId: show.id,
+      expiresAt: { [Op.gt]: now },
+    },
+    attributes: ["seat"],
+  });
+  const lockedSeats = new Set(locks.map((l) => l.seat));
 
   const rows = screen.rows.map((row) => {
     const seats = [];
@@ -26,7 +32,7 @@ export async function buildSeatMap(show, now = new Date()) {
       const id = `${row.label}${i}`;
       let status = "available";
       if (booked.has(id)) status = "booked";
-      else if (lockedByOthers.has(id)) status = "locked";
+      else if (lockedSeats.has(id)) status = "locked";
       seats.push({ id, status, price: row.price, seatType: row.seatType });
     }
     return { label: row.label, seatType: row.seatType, price: row.price, seats };
@@ -40,10 +46,10 @@ export async function buildSeatMap(show, now = new Date()) {
  * Returns { totalAmount, breakdown } and throws if a seat id is unknown.
  */
 export async function priceSeats(show, seatIds) {
-  const screen = await Screen.findById(show.screen).lean();
+  const screen = await Screen.findByPk(show.screenId);
   if (!screen) throw new Error("Screen not found for show");
 
-  // Map of seatId -> price derived from the row label.
+  // Map of rowLabel -> price derived from the row configuration.
   const priceByRow = new Map(screen.rows.map((r) => [r.label, r.price]));
   let totalAmount = 0;
   const breakdown = [];
